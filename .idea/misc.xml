@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/parksync/backend/pom.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="NullableNotNullManager">
+    <instrumentedNotNulls>
+      <option value="edu.umd.cs.findbugs.annotations.NonNull" />
+      <option value="jakarta.annotation.Nonnull" />
+      <option value="javax.annotation.Nonnull" />
+      <option value="lombok.NonNull" />
+      <option value="org.checkerframework.checker.nullness.compatqual.NonNullDecl" />
+      <option value="org.checkerframework.checker.nullness.compatqual.NonNullType" />
+      <option value="org.checkerframework.checker.nullness.qual.NonNull" />
+      <option value="org.eclipse.jdt.annotation.NonNull" />
+      <option value="org.jetbrains.annotations.NotNull" />
+      <option value="org.jspecify.annotations.NonNull" />
+      <option value="org.springframework.lang.NonNull" />
+    </instrumentedNotNulls>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_17" default="true" project-jdk-name="jbr-17 (2)" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+</project>
