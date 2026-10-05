@@ -8,13 +8,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
-// NOTE: Spring Security is included only for BCryptPasswordEncoder (password
-// hashing). We are NOT implementing full session/JWT-based authentication in
-// this phase (that was scoped out as a "harder" stretch feature). This config
-// disables Security's default "block everything" behaviour so the REST API
-// stays open for the demo, while registration/login still hash passwords
-// properly. If your team later adds real JWT auth, replace this permitAll
-// filter chain with real authorization rules.
+/**
+ * BCrypt for passwords. API access is gated by {@link ApiAuthFilter}
+ * (X-User-Id header after login). Full JWT can replace this later.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {

@@ -235,14 +235,13 @@ function AttendantTicketDesk() {
     <div className="page">
       <h1 className="page-title">Vehicle Check-in / Check-out</h1>
       <p className="page-subtitle">
-        Pick a confirmed reservation from the list (cancelled / unpaid / already checked-in are hidden).
-        Early exit = no refund. Late exit = existing overstay penalty. Slot held 10 minutes after check-out.
+        Staff desk for demos: <strong>1 Check-in</strong> → <strong>2 Active</strong> → <strong>3 History</strong>. Early exit = no refund; late exit = overstay penalty.
       </p>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button type="button" className={`btn btn-sm ${tab === 'checkin' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('checkin')}>Check-in</button>
-        <button type="button" className={`btn btn-sm ${tab === 'active' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('active')}>Active tickets</button>
-        <button type="button" className={`btn btn-sm ${tab === 'history' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('history')}>History</button>
+      <div className="ticket-tabs" style={{ marginBottom: 16 }}>
+          <button type="button" className={tab === 'checkin' ? 'active' : ''} onClick={() => setTab('checkin')}>1 · Check-in</button>
+          <button type="button" className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>2 · Active tickets</button>
+          <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>3 · History</button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}

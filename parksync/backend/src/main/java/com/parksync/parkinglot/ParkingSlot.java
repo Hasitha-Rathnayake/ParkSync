@@ -21,8 +21,8 @@ public class ParkingSlot {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Slot code is required (e.g. 'B-14')")
-    @Size(max = 20, message = "Slot code must be under 20 characters")
+    // Auto-generated as LOTNAME-01 when blank (see ParkingLotService)
+    @Size(max = 30, message = "Slot code must be under 30 characters")
     private String slotCode;
 
     @Size(max = 20, message = "Floor must be under 20 characters")

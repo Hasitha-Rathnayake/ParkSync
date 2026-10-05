@@ -32,6 +32,10 @@ public class ParkingLot {
     @Min(value = 1, message = "Total capacity must be at least 1")
     private int totalCapacity;
 
+    /** Relative path under /uploads, e.g. lots/3.jpg — served at /uploads/... */
+    @Size(max = 255)
+    private String imagePath;
+
     @OneToMany(mappedBy = "parkingLot", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ParkingSlot> slots;
 }

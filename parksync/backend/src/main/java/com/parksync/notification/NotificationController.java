@@ -37,6 +37,17 @@ public class NotificationController {
         return notificationService.getHistory(userId);
     }
 
+    @GetMapping("/user/{userId}/unread-count")
+    public java.util.Map<String, Long> unreadCount(@PathVariable Long userId) {
+        return java.util.Map.of("count", notificationService.countUnread(userId));
+    }
+
+    @PutMapping("/user/{userId}/read-all")
+    public ResponseEntity<?> markAllRead(@PathVariable Long userId) {
+        notificationService.markAllRead(userId);
+        return ResponseEntity.ok(java.util.Map.of("ok", true));
+    }
+
     @PutMapping("/{id}/read")
     public ResponseEntity<?> markRead(@PathVariable Long id) {
         notificationService.markRead(id);

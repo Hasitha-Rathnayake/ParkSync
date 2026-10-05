@@ -1,10 +1,11 @@
 import apiClient from './client';
 
-// Member 6 - Notifications & Customer Review/Feedback Management
 export const sendNotification = (userId, message, type) =>
   apiClient.post('/notifications/send', null, { params: { userId, message, type } });
 export const getNotificationHistory = (userId) => apiClient.get(`/notifications/user/${userId}`);
+export const getUnreadCount = (userId) => apiClient.get(`/notifications/user/${userId}/unread-count`);
 export const markNotificationRead = (id) => apiClient.put(`/notifications/${id}/read`);
+export const markAllNotificationsRead = (userId) => apiClient.put(`/notifications/user/${userId}/read-all`);
 export const deleteNotification = (id) => apiClient.delete(`/notifications/${id}`);
 
 export const submitReview = (data) => apiClient.post('/notifications/reviews', data);

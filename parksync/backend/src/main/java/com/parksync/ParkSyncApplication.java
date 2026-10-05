@@ -11,3 +11,9 @@ public class ParkSyncApplication {
         SpringApplication.run(ParkSyncApplication.class, args);
     }
 }
+
+/*
+cd "C:\Users\hasit\Downloads\ParkSync_Full_Project with all validations\parksync\frontend"
+npm install
+npm run dev
+ */

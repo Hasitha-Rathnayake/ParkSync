@@ -120,7 +120,31 @@ public class NotificationService {
     }
 
     public List<Notification> getHistory(Long userId) {
-        return notificationRepository.findByUserIdOrderBySentAtDesc(userId);
+        // Unread first, then newest → oldest (Madam / standard inbox behaviour)
+        List<Notification> list = notificationRepository.findByUserIdOrderBySentAtDesc(userId);
+        list.sort((a, b) -> {
+            if (a.isReadFlag() != b.isReadFlag()) {
+                return a.isReadFlag() ? 1 : -1; // unread (false) first
+            }
+            if (a.getSentAt() == null && b.getSentAt() == null) return 0;
+            if (a.getSentAt() == null) return 1;
+            if (b.getSentAt() == null) return -1;
+            return b.getSentAt().compareTo(a.getSentAt());
+        });
+        return list;
+    }
+
+    public long countUnread(Long userId) {
+        return notificationRepository.countUnreadByUserId(userId);
+    }
+
+    public void markAllRead(Long userId) {
+        for (Notification n : notificationRepository.findByUserId(userId)) {
+            if (!n.isReadFlag()) {
+                n.setReadFlag(true);
+                notificationRepository.save(n);
+            }
+        }
     }
 
     public void markRead(Long id) {

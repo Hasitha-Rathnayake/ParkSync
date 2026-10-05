@@ -6,6 +6,7 @@ import {
   deactivatePricingRule,
 } from '../api/pricingApi';
 import { getAllLots } from '../api/parkingLotApi';
+import SpecialPackagesPanel from '../components/SpecialPackagesPanel';
 import SearchableSelect from '../components/SearchableSelect';
 
 const emptyForm = {
@@ -274,6 +275,8 @@ export default function PricingPage() {
           </div>
         </div>
       ))}
-    </div>
+    
+      <SpecialPackagesPanel lots={lots} />
+</div>
   );
 }

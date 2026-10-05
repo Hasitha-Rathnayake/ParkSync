@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
   getNotificationHistory, submitReview, getEligibleReviewReservations,
-  getReviewsForLot, getAverageRating, respondToReview, flagReviewSpam, markNotificationRead,
+  getReviewsForLot, getAverageRating, respondToReview, flagReviewSpam,
+  markNotificationRead, markAllNotificationsRead, deleteNotification,
 } from '../api/notificationApi';
 import { getAllLots } from '../api/parkingLotApi';
 import { useAuth } from '../context/AuthContext';
@@ -87,27 +88,60 @@ function CustomerNotifications({ user }) {
         Booking alerts, payment countdowns, check-in/out messages, and a place to rate completed visits.
       </p>
 
-      <div className="section-label">Your Notifications</div>
+      <div className="section-label" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span>Your Notifications</span>
+        {notifications.some((n) => !n.readFlag) && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => markAllNotificationsRead(user.id).then(load)}
+          >
+            Mark all read
+          </button>
+        )}
+      </div>
+      <p className="card-meta" style={{ marginBottom: 12 }}>
+        Unread first, then newest. Delete removes a notification from your list.
+      </p>
       {notifications.length === 0 && <div className="empty-state">No notifications yet.</div>}
       {notifications.map((n) => (
-        <div className="card" key={n.id} style={{ opacity: n.readFlag ? 0.75 : 1 }}>
+        <div
+          className="card"
+          key={n.id}
+          style={{
+            opacity: n.readFlag ? 0.8 : 1,
+            borderLeft: n.readFlag ? undefined : '4px solid #F59E0B',
+            background: n.readFlag ? undefined : '#FFFBEB',
+          }}
+        >
           <div className="card-row">
             <div>
               <span className="badge badge-pending">{n.type}</span>
+              {!n.readFlag && (
+                <span className="badge" style={{ marginLeft: 8, background: '#EF4444', color: '#fff' }}>UNREAD</span>
+              )}
               <div className="card-meta" style={{ marginTop: 8 }}>{n.message}</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
               <div className="card-meta">{n.sentAt ? new Date(n.sentAt).toLocaleString() : ''}</div>
-              {!n.readFlag && (
+              <div style={{ display: 'flex', gap: 6 }}>
+                {!n.readFlag && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => markNotificationRead(n.id).then(load)}
+                  >
+                    Mark read
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm"
-                  style={{ marginTop: 6 }}
-                  onClick={() => markNotificationRead(n.id).then(load)}
+                  className="btn btn-danger btn-sm"
+                  onClick={() => deleteNotification(n.id).then(load)}
                 >
-                  Mark read
+                  Delete
                 </button>
-              )}
+              </div>
             </div>
           </div>
         </div>
