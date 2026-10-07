@@ -3,13 +3,16 @@ package com.parksync.notification;
 import com.parksync.reservation.Reservation;
 import com.parksync.reservation.ReservationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.parksync.notification.observer.BookingEventPublisher;
+import com.parksync.notification.observer.BookingObserver;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-public class NotificationService {
+public class NotificationService implements BookingObserver {
 
     @Autowired
     private NotificationRepository notificationRepository;
@@ -20,8 +23,25 @@ public class NotificationService {
     @Autowired
     private ReservationRepository reservationRepository;
 
+    @Autowired
+    private BookingEventPublisher bookingEventPublisher;
+
     public Notification send(Long userId, String message, Notification.NotificationType type) {
         return send(userId, null, message, type);
+    }
+
+    
+    /** OBSERVER: register this service as a listener once the bean is ready. */
+    @PostConstruct
+    public void registerAsObserver() {
+        bookingEventPublisher.subscribe(this);
+    }
+
+    /** OBSERVER callback — currently logs event type; notifications already persist via send(). */
+    @Override
+    public void onEvent(String eventType, Long userId, Long reservationId, String message) {
+        // Extension point for extra listeners (email, SMS). In-app row is created by send().
+        System.out.println("[Observer] " + eventType + " user=" + userId + " res=" + reservationId);
     }
 
     public Notification send(Long userId, Long reservationId, String message, Notification.NotificationType type) {
@@ -32,7 +52,9 @@ public class NotificationService {
         n.setType(type);
         n.setSentAt(LocalDateTime.now());
         n.setReadFlag(false);
-        return notificationRepository.save(n);
+        Notification saved = notificationRepository.save(n);
+        bookingEventPublisher.publish(type.name(), userId, reservationId, message);
+        return saved;
     }
 
     /** Send once per reservation + type (avoids scheduler spam). */
@@ -120,31 +142,7 @@ public class NotificationService {
     }
 
     public List<Notification> getHistory(Long userId) {
-        // Unread first, then newest → oldest (Madam / standard inbox behaviour)
-        List<Notification> list = notificationRepository.findByUserIdOrderBySentAtDesc(userId);
-        list.sort((a, b) -> {
-            if (a.isReadFlag() != b.isReadFlag()) {
-                return a.isReadFlag() ? 1 : -1; // unread (false) first
-            }
-            if (a.getSentAt() == null && b.getSentAt() == null) return 0;
-            if (a.getSentAt() == null) return 1;
-            if (b.getSentAt() == null) return -1;
-            return b.getSentAt().compareTo(a.getSentAt());
-        });
-        return list;
-    }
-
-    public long countUnread(Long userId) {
-        return notificationRepository.countUnreadByUserId(userId);
-    }
-
-    public void markAllRead(Long userId) {
-        for (Notification n : notificationRepository.findByUserId(userId)) {
-            if (!n.isReadFlag()) {
-                n.setReadFlag(true);
-                notificationRepository.save(n);
-            }
-        }
+        return notificationRepository.findByUserIdOrderBySentAtDesc(userId);
     }
 
     public void markRead(Long id) {
@@ -152,6 +150,20 @@ public class NotificationService {
             n.setReadFlag(true);
             notificationRepository.save(n);
         });
+    }
+
+    /** Unread notification count for navbar badge. */
+    public long countUnread(Long userId) {
+        return notificationRepository.countUnreadByUserId(userId);
+    }
+
+    /** Mark every notification for this user as read. */
+    public void markAllRead(Long userId) {
+        List<Notification> list = notificationRepository.findByUserId(userId);
+        for (Notification n : list) {
+            n.setReadFlag(true);
+            notificationRepository.save(n);
+        }
     }
 
     public void deleteNotification(Long id) {

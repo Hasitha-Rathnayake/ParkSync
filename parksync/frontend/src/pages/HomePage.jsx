@@ -42,6 +42,18 @@ const IconCalendar = () => (
 const IconUser = () => (
   <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></svg>
 );
+const IconVehicle = () => (
+  <svg viewBox="0 0 24 24" aria-hidden><path d="M5 11l2-5h10l2 5M3 11h18v7H3v-7z" /><circle cx="7.5" cy="16.5" r="1.5" /><circle cx="16.5" cy="16.5" r="1.5" /></svg>
+);
+const IconStar = () => (
+  <svg viewBox="0 0 24 24" aria-hidden><path d="M12 3l2.4 6.5H21l-5.2 4 2 6.5L12 16.5 6.2 20l2-6.5L3 9.5h6.6z" /></svg>
+);
+const IconClock = () => (
+  <svg viewBox="0 0 24 24" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v6l4 2" /></svg>
+);
+const IconPin = () => (
+  <svg viewBox="0 0 24 24" aria-hidden><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+);
 const IconBook = () => (
   <svg viewBox="0 0 24 24" aria-hidden><path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 0-2 2V5z" /><path d="M17 3v18" /></svg>
 );
@@ -60,7 +72,17 @@ function getHeroCta(role) {
 }
 
 function fmt(v) {
-  if (v === undefined || v === null) return '—';
+  if (v === undefined || v === null || v === '') return '—';
+  if (typeof v === 'string') return v;
+  return Number(v).toLocaleString();
+}
+
+function fmtStat(key, v) {
+  if (v === undefined || v === null || v === '') return '—';
+  if (key === 'positiveFeedbackPercent') return Number(v).toFixed(Number(v) % 1 ? 1 : 0) + '%';
+  if (key === 'avgBookingHours') return Number(v).toFixed(Number(v) % 1 ? 1 : 0) + ' h';
+  if (key === 'mostUsedSlotSharePercent') return Number(v).toFixed(Number(v) % 1 ? 1 : 0) + '%';
+  if (key === 'mostUsedSlotCode') return String(v);
   return Number(v).toLocaleString();
 }
 
@@ -82,6 +104,10 @@ export default function HomePage() {
     { key: 'totalSlots', label: 'Parking slots', detail: 'Spaces across all lots', icon: <IconParking /> },
     { key: 'totalReservations', label: 'Reservations', detail: 'Total bookings recorded', icon: <IconCalendar /> },
     { key: 'totalCustomers', label: 'Registered drivers', detail: 'Customer accounts', icon: <IconUser /> },
+    { key: 'totalVehicles', label: 'Registered vehicles', detail: 'Plates linked to customers', icon: <IconVehicle /> },
+    { key: 'positiveFeedbackPercent', label: 'Positive feedback', detail: 'Reviews rated 4★ or higher', icon: <IconStar /> },
+    { key: 'avgBookingHours', label: 'Avg booking length', detail: 'Mean hours per reservation', icon: <IconClock /> },
+    { key: 'mostUsedSlotCode', label: 'Most used slot', detailKey: 'mostUsedSlotSharePercent', detailPrefix: 'Share of all bookings: ', icon: <IconPin /> },
   ];
 
   const customerBenefits = [
@@ -203,17 +229,22 @@ export default function HomePage() {
       <section className="lp-section">
         <div className="lp-section-head">
           <h2>Platform at a glance</h2>
-          <p>Live totals across lots, slots, bookings, and drivers.</p>
+          <p>Live totals — capacity, demand, feedback, and usage.</p>
         </div>
         <div className="lp-stat-cards">
-          {statDefs.map((s) => (
-            <div className="lp-stat-card" key={s.key}>
-              <div className="lp-stat-card-icon">{s.icon}</div>
-              <div className="lp-stats-strip-num">{fmt(stats?.[s.key])}</div>
-              <div className="lp-stats-strip-label">{s.label}</div>
-              <div className="lp-stats-strip-detail">{s.detail}</div>
-            </div>
-          ))}
+          {statDefs.map((s) => {
+            const detail = s.detailKey
+              ? (s.detailPrefix || '') + fmtStat(s.detailKey, stats?.[s.detailKey])
+              : s.detail;
+            return (
+              <div className="lp-stat-card" key={s.key}>
+                <div className="lp-stat-card-icon">{s.icon}</div>
+                <div className="lp-stats-strip-num">{fmtStat(s.key, stats?.[s.key])}</div>
+                <div className="lp-stats-strip-label">{s.label}</div>
+                <div className="lp-stats-strip-detail">{detail}</div>
+              </div>
+            );
+          })}
         </div>
       </section>
 

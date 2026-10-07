@@ -1,11 +1,16 @@
 package com.parksync.payment;
 
 import com.parksync.pricing.PricingRule;
-import com.parksync.pricing.SpecialPackage;
-import com.parksync.pricing.SpecialPackageService;
 import com.parksync.pricing.PricingRuleRepository;
 import com.parksync.reservation.Reservation;
 import com.parksync.reservation.ReservationRepository;
+import com.parksync.notification.NotificationService;
+import com.parksync.pricing.strategy.BaseRateStrategy;
+import com.parksync.pricing.strategy.PeakRateStrategy;
+import com.parksync.pricing.strategy.PercentageOffStrategy;
+import com.parksync.pricing.strategy.PricingContext;
+import com.parksync.pricing.strategy.PricingStrategy;
+import com.parksync.reservation.state.ReservationStatusState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -20,9 +25,6 @@ import java.util.Optional;
 public class PaymentService {
 
     @Autowired
-    private SpecialPackageService specialPackageService;
-
-    @Autowired
     private PaymentRepository paymentRepository;
 
     @Autowired
@@ -31,45 +33,35 @@ public class PaymentService {
     @Autowired
     private PricingRuleRepository pricingRuleRepository;
 
-    // Helper: pick the right rate (peak vs base) for a given rule + start time
-    private BigDecimal resolveHourlyRate(PricingRule rule, LocalDateTime start) {
+    @Autowired
+    private NotificationService notificationService;
+
+    // Helper: peak window check (same rules as before)
+    private boolean isPeak(PricingRule rule, LocalDateTime start) {
         int hour = start.getHour();
-        boolean isPeak = hour >= rule.getPeakStartHour() && hour < rule.getPeakEndHour();
-        return isPeak ? rule.getPeakRatePerHour() : rule.getBaseRatePerHour();
+        return hour >= rule.getPeakStartHour() && hour < rule.getPeakEndHour();
     }
 
-    // Shared calculation used both at initial charge and at edit-recalculation,
-    // so the two never drift out of sync with each other.
-    private BigDecimal calculateAmount(PricingRule rule, LocalDateTime start, LocalDateTime end,
-                                        String discountCode, Long parkingLotId) {
+    /**
+     * STRATEGY pattern: choose Base or Peak strategy, optionally wrap with discount %.
+     * Used by create charge and edit-recalculate so amounts stay consistent.
+     */
+    private BigDecimal calculateAmount(PricingRule rule, LocalDateTime start, LocalDateTime end, String discountCode) {
         long minutes = ChronoUnit.MINUTES.between(start, end);
         BigDecimal hours = BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
 
-        BigDecimal rate = resolveHourlyRate(rule, start);
-        BigDecimal amount = rate.multiply(hours);
-
+        PricingStrategy strategy = isPeak(rule, start) ? new PeakRateStrategy() : new BaseRateStrategy();
         if (discountCode != null && discountCode.equalsIgnoreCase(rule.getDiscountCode())
-                && rule.getDiscountPercentage() != null) {
-            BigDecimal discount = amount.multiply(rule.getDiscountPercentage())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            amount = amount.subtract(discount);
+                && rule.getDiscountPercentage() != null
+                && rule.getDiscountPercentage().compareTo(BigDecimal.ZERO) > 0) {
+            strategy = new PercentageOffStrategy(strategy, rule.getDiscountPercentage());
         }
 
-        // Special package (festival / seasonal / weekend) — best active % for start date
-        if (parkingLotId != null && specialPackageService != null) {
-            try {
-                SpecialPackage pkg = specialPackageService.bestForLotOnDate(parkingLotId, start.toLocalDate());
-                if (pkg != null && pkg.getDiscountPercentage() != null
-                        && pkg.getDiscountPercentage().compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal extra = amount.multiply(pkg.getDiscountPercentage())
-                            .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    amount = amount.subtract(extra);
-                }
-            } catch (Exception ignored) { }
-        }
+        PricingContext context = new PricingContext(strategy);
+        BigDecimal amount = context.execute(hours, rule.getBaseRatePerHour(), rule.getPeakRatePerHour());
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            amount = BigDecimal.valueOf(0.01); // minimum nominal charge, avoids Rs. 0 / negative invoices
+            amount = BigDecimal.valueOf(0.01); // minimum nominal charge
         }
         return amount.setScale(2, RoundingMode.HALF_UP);
     }
@@ -80,6 +72,8 @@ public class PaymentService {
     // NOTE: the pricing rule is resolved automatically from the reservation's
     // parking lot - the customer never sees or supplies a "Pricing Rule ID".
     public Payment createPaymentForReservation(Reservation reservation, String discountCode, Payment.PaymentMethod method) {
+        // STATE pattern — only PENDING_PAYMENT may be paid
+        ReservationStatusState.assertCanPay(reservation.getStatus());
         if (reservation.getStatus() != Reservation.ReservationStatus.PENDING_PAYMENT) {
             throw new IllegalStateException(
                     "This reservation is no longer awaiting payment - it may have already been paid, "
@@ -100,7 +94,7 @@ public class PaymentService {
         }
         PricingRule rule = activeRules.get(0); // one active rule per lot, for now
 
-        BigDecimal amount = calculateAmount(rule, reservation.getStartTime(), reservation.getEndTime(), discountCode, lotId);
+        BigDecimal amount = calculateAmount(rule, reservation.getStartTime(), reservation.getEndTime(), discountCode);
 
         Payment payment = new Payment();
         payment.setReservationId(reservation.getId());
@@ -115,8 +109,12 @@ public class PaymentService {
         Payment saved = paymentRepository.save(payment);
 
         // payment succeeded - the reservation is now genuinely confirmed
-        reservation.setStatus(Reservation.ReservationStatus.CONFIRMED);
+        reservation.setStatus(ReservationStatusState.afterSuccessfulPayment());
         reservationRepository.save(reservation);
+
+        try {
+            notificationService.notifyBookingConfirmed(reservation);
+        } catch (Exception ignored) { }
 
         return saved;
     }
@@ -138,44 +136,36 @@ public class PaymentService {
         return paymentRepository.findByReservationId(reservationId);
     }
 
-    // UPDATE - recalculate when a PAID reservation's time and/or lot changes.
-    // ReservationService calls the 4-arg form (newLotId may be null for time-only edits).
-
+    // UPDATE - recalculate the charge when a PAID reservation's time (and
+    // optionally slot/lot) changes. If newLotId is provided, switch to that
+    // lot's active pricing rule so a "Change Slot" into another lot picks up
+    // the correct rates. Called by ReservationService.updateReservation.
     public Payment recalculateForEdit(Long reservationId, LocalDateTime newStart, LocalDateTime newEnd) {
         return recalculateForEdit(reservationId, newStart, newEnd, null);
     }
 
     public Payment recalculateForEdit(Long reservationId, LocalDateTime newStart, LocalDateTime newEnd, Long newLotId) {
         Optional<Payment> paymentOpt = paymentRepository.findByReservationId(reservationId);
-        if (paymentOpt.isEmpty()) return null; // not paid yet
+        if (paymentOpt.isEmpty()) return null; // not paid yet - nothing to recalculate
 
         Payment payment = paymentOpt.get();
-        if (payment.getStatus() != Payment.PaymentStatus.PAID) return payment;
+        if (payment.getStatus() != Payment.PaymentStatus.PAID) return payment; // refunded/void - leave alone
 
-        Long editLotId = newLotId;
-        try {
-            Reservation res = reservationRepository.findById(reservationId).orElse(null);
-            if (res != null && res.getParkingSlot() != null && res.getParkingSlot().getParkingLot() != null) {
-                if (editLotId == null) {
-                    editLotId = res.getParkingSlot().getParkingLot().getId();
-                }
-            }
-        } catch (Exception ignored) { }
-
-        PricingRule rule = null;
+        PricingRule rule;
         if (newLotId != null) {
-            List<PricingRule> lotRules = pricingRuleRepository.findByParkingLotIdAndActiveTrue(newLotId);
-            if (lotRules != null && !lotRules.isEmpty()) {
-                rule = lotRules.get(0);
-                payment.setPricingRuleId(rule.getId());
+            List<PricingRule> activeRules = pricingRuleRepository.findByParkingLotIdAndActiveTrue(newLotId);
+            if (activeRules.isEmpty()) {
+                throw new IllegalStateException(
+                        "The new parking lot doesn't have pricing set up yet - cannot change to that lot.");
             }
-        }
-        if (rule == null) {
+            rule = activeRules.get(0);
+            payment.setPricingRuleId(rule.getId());
+        } else {
             rule = pricingRuleRepository.findById(payment.getPricingRuleId())
                     .orElseThrow(() -> new RuntimeException("Pricing rule not found"));
         }
 
-        BigDecimal newAmount = calculateAmount(rule, newStart, newEnd, payment.getDiscountCodeUsed(), editLotId);
+        BigDecimal newAmount = calculateAmount(rule, newStart, newEnd, payment.getDiscountCodeUsed());
         payment.setAmount(newAmount);
         return paymentRepository.save(payment);
     }

@@ -26,76 +26,136 @@ export default function TicketPage() {
     : <CustomerETickets user={user} />;
 }
 
+
+function loadTicketMeta(userId) {
+  try {
+    const raw = localStorage.getItem('parksync_ticket_meta_' + userId);
+    return raw ? JSON.parse(raw) : { read: {}, hidden: {} };
+  } catch {
+    return { read: {}, hidden: {} };
+  }
+}
+function saveTicketMeta(userId, meta) {
+  localStorage.setItem('parksync_ticket_meta_' + userId, JSON.stringify(meta));
+}
+
 function CustomerETickets({ user }) {
   const [items, setItems] = useState([]);
   const [error, setError] = useState('');
+  const [meta, setMeta] = useState(() => loadTicketMeta(user.id));
 
   useEffect(() => {
     getTicketsForUser(user.id)
-      .then((res) => setItems(res.data))
+      .then((res) => setItems(res.data || []))
       .catch(() => setError('Could not load your e-tickets.'));
   }, [user.id]);
+
+  const visible = items.filter((d) => !meta.hidden?.[d.ticket.id]);
+  const completed = visible.filter((d) => String(d.ticket.status).toUpperCase() === 'COMPLETED');
+  const unreadCount = completed.filter((d) => !meta.read?.[d.ticket.id]).length;
+
+  const markRead = (id) => {
+    const next = { ...meta, read: { ...meta.read, [id]: true } };
+    setMeta(next);
+    saveTicketMeta(user.id, next);
+  };
+  const hideFromHistory = (id) => {
+    const next = { ...meta, hidden: { ...meta.hidden, [id]: true }, read: { ...meta.read, [id]: true } };
+    setMeta(next);
+    saveTicketMeta(user.id, next);
+  };
 
   return (
     <div className="page">
       <h1 className="page-title">My E-Tickets</h1>
       <p className="page-subtitle">
-        View only — your digital parking tickets. Show these at the lot if asked. Only staff can check you in or out.
+        Digital parking tickets — show at the lot if asked. Staff handle check-in and check-out.
       </p>
+      {unreadCount > 0 && (
+        <div className="alert alert-success" style={{ fontWeight: 600 }}>
+          {unreadCount} completed ticket{unreadCount > 1 ? 's' : ''} not marked as read yet.
+        </div>
+      )}
       {error && <div className="alert alert-error">{error}</div>}
-      {items.length === 0 && <div className="empty-state">No e-tickets yet. Book a slot, pay, then staff will check you in.</div>}
-      {items.map((d) => (
-        <ETicketCard key={d.ticket.id} details={d} />
+      {visible.length === 0 && (
+        <div className="empty-state">No e-tickets yet. Book a slot, pay, then staff will check you in.</div>
+      )}
+      {visible.map((d) => (
+        <ETicketCard
+          key={d.ticket.id}
+          details={d}
+          isRead={!!meta.read?.[d.ticket.id]}
+          onMarkRead={() => markRead(d.ticket.id)}
+          onDeleteHistory={() => hideFromHistory(d.ticket.id)}
+        />
       ))}
     </div>
   );
 }
 
-function ETicketCard({ details }) {
+function ETicketCard({ details, isRead, onMarkRead, onDeleteHistory }) {
   const t = details.ticket;
   const status = t.status;
+  const completed = String(status).toUpperCase() === 'COMPLETED';
+  const amount = details.amountPaid;
+
   return (
-    <div className="card">
-      <div className="card-row">
-        <div>
-          <div className="card-title">
+    <div
+      className="card"
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: 16,
+        padding: 20,
+        boxShadow: 'var(--shadow-sm)',
+        background: 'var(--bg-card)',
+      }}
+    >
+      <div className="card-row" style={{ alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 18, color: 'var(--navy)', letterSpacing: '-0.02em' }}>
             E-Ticket #{t.id}
             {t.reservationId ? ` · Reservation #${t.reservationId}` : ' · Walk-in'}
           </div>
-          <div className="card-meta">
-            {details.customerName && <>Customer: {details.customerName} · </>}
-            Plate: {t.vehiclePlateNumber}
+          <div style={{ marginTop: 8, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+            {details.customerName && <>{details.customerName} · </>}
+            Plate <strong>{t.vehiclePlateNumber}</strong>
           </div>
-          <div className="card-meta">
+          <div style={{ marginTop: 4, fontSize: 13.5, color: 'var(--text-muted)', lineHeight: 1.55 }}>
             {details.lotName && <>{details.lotName}{details.lotAddress ? ` — ${details.lotAddress}` : ''} · </>}
-            Slot {details.slotCode || t.parkingSlotId}
-            {details.floor ? ` (Floor ${details.floor})` : ''}
+            Slot <strong>{details.slotCode || t.parkingSlotId}</strong>
           </div>
-          {details.bookedStart && (
-            <div className="card-meta">
-              Booked: {new Date(details.bookedStart).toLocaleString()} → {new Date(details.bookedEnd).toLocaleString()}
-            </div>
-          )}
-          <div className="card-meta">
+          <div style={{ marginTop: 6, fontSize: 13, color: 'var(--text-muted)' }}>
             Entry: {t.entryTime ? new Date(t.entryTime).toLocaleString() : '—'}
-            {t.exitTime ? ` · Exit: ${new Date(t.exitTime).toLocaleString()}` : ''}
+            {t.exitTime && <> · Exit: {new Date(t.exitTime).toLocaleString()}</>}
           </div>
-          {details.amountPaid != null && (
-            <div className="card-meta">
-              Paid: Rs. {details.amountPaid}
-              {details.overstayPenalty > 0 ? ` · Overstay penalty: Rs. ${details.overstayPenalty}` : ''}
+          {amount != null && (
+            <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 12, background: 'rgba(201,162,39,0.12)', border: '1px solid rgba(201,162,39,0.35)' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--amber-dark)' }}>
+                Final amount paid
+              </div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, color: 'var(--navy)', letterSpacing: '-0.03em' }}>
+                Rs. {Number(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
             </div>
           )}
-          {details.thankYouMessage && status === 'COMPLETED' && (
-            <div className="alert alert-success" style={{ marginTop: 10 }}>{details.thankYouMessage}</div>
+          {details.thankYouMessage && (
+            <div className="alert alert-success" style={{ marginTop: 12 }}>{details.thankYouMessage}</div>
           )}
-          {status === 'ACTIVE' && details.thankYouMessage && (
-            <div className="alert alert-info" style={{ marginTop: 10 }}>{details.thankYouMessage}</div>
+          {completed && (
+            <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {!isRead && onMarkRead && (
+                <button type="button" className="btn btn-primary btn-sm" onClick={onMarkRead}>Mark as read</button>
+              )}
+              {isRead && <span className="badge badge-confirmed">Read</span>}
+              {onDeleteHistory && (
+                <button type="button" className="btn btn-secondary btn-sm" onClick={onDeleteHistory}>Remove from history</button>
+              )}
+            </div>
           )}
         </div>
         <span className={`badge badge-${String(status).toLowerCase()}`}>{status}</span>
       </div>
-      {t.overstayed && <span className="badge badge-cancelled" style={{ marginTop: 8 }}>Overstayed</span>}
+      {t.overstayed && <span className="badge badge-cancelled" style={{ marginTop: 10 }}>Overstayed</span>}
     </div>
   );
 }
@@ -235,13 +295,14 @@ function AttendantTicketDesk() {
     <div className="page">
       <h1 className="page-title">Vehicle Check-in / Check-out</h1>
       <p className="page-subtitle">
-        Staff desk for demos: <strong>1 Check-in</strong> → <strong>2 Active</strong> → <strong>3 History</strong>. Early exit = no refund; late exit = overstay penalty.
+        Pick a confirmed reservation from the list (cancelled / unpaid / already checked-in are hidden).
+        Early exit = no refund. Late exit = existing overstay penalty. Slot held 10 minutes after check-out.
       </p>
 
-      <div className="ticket-tabs" style={{ marginBottom: 16 }}>
-          <button type="button" className={tab === 'checkin' ? 'active' : ''} onClick={() => setTab('checkin')}>1 · Check-in</button>
-          <button type="button" className={tab === 'active' ? 'active' : ''} onClick={() => setTab('active')}>2 · Active tickets</button>
-          <button type="button" className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>3 · History</button>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button type="button" className={`btn btn-sm ${tab === 'checkin' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('checkin')}>Check-in</button>
+        <button type="button" className={`btn btn-sm ${tab === 'active' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('active')}>Active tickets</button>
+        <button type="button" className={`btn btn-sm ${tab === 'history' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTab('history')}>History</button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}

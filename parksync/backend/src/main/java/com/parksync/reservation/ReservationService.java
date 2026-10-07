@@ -7,6 +7,7 @@ import com.parksync.notification.NotificationService;
 import com.parksync.vehicle.Vehicle;
 import com.parksync.vehicle.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.parksync.common.config.SystemConfigSingleton;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -30,8 +31,9 @@ public class ReservationService {
     @Autowired
     private NotificationService notificationService;
 
-    private static final int BUFFER_MINUTES = 15;
-    private static final int PAYMENT_WINDOW_MINUTES = 15;
+    // SINGLETON pattern — shared config instance
+    private static final int BUFFER_MINUTES = SystemConfigSingleton.getInstance().getOverlapBufferMinutes();
+    private static final int PAYMENT_WINDOW_MINUTES = SystemConfigSingleton.getInstance().getPaymentWindowMinutes();
 
     // A slot counts as "taken" for overlap purposes if there's a CONFIRMED
     // booking on it, OR another booking still waiting on payment.

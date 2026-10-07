@@ -14,6 +14,7 @@ import com.parksync.vehicle.Vehicle;
 import com.parksync.vehicle.VehicleRepository;
 import com.parksync.notification.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.parksync.ticket.factory.TicketFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -111,12 +112,8 @@ public class TicketService {
                     "Vehicle " + vehicle.getPlateNumber() + " already has an active ticket — check it out first.");
         }
 
-        Ticket ticket = new Ticket();
-        ticket.setReservationId(res.getId());
-        ticket.setParkingSlotId(slot.getId());
-        ticket.setVehiclePlateNumber(vehicle.getPlateNumber());
-        ticket.setEntryTime(LocalDateTime.now());
-        ticket.setStatus(Ticket.TicketStatus.ACTIVE);
+        // FACTORY pattern — build reservation e-ticket
+        Ticket ticket = TicketFactory.createForReservation(res.getId(), vehicle.getPlateNumber(), slot.getId());
 
         slot.setStatus(ParkingSlot.SlotStatus.OCCUPIED);
         parkingSlotRepository.save(slot);
@@ -161,11 +158,9 @@ public class TicketService {
         slot.setStatus(ParkingSlot.SlotStatus.OCCUPIED);
         parkingSlotRepository.save(slot);
 
-        ticket.setReservationId(null);
-        ticket.setVehiclePlateNumber(ticket.getVehiclePlateNumber().trim());
-        ticket.setEntryTime(LocalDateTime.now());
-        ticket.setStatus(Ticket.TicketStatus.ACTIVE);
-        return ticketRepository.save(ticket);
+        // FACTORY pattern — build walk-in ticket from attendant input
+        Ticket built = TicketFactory.createWalkIn(ticket.getVehiclePlateNumber().trim(), ticket.getParkingSlotId());
+        return ticketRepository.save(built);
     }
 
     /** Legacy body-based check-in: if reservationId set → by reservation; else walk-in. */

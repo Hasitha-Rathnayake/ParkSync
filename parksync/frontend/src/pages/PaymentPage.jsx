@@ -116,10 +116,15 @@ export default function PaymentPage() {
     if (form.method !== 'CARD') return null;
     const digits = onlyDigits(form.cardNumber);
     if (!digits) return 'Enter a card number.';
-    if (!luhnCheck(digits)) return 'Invalid card number. Try 4111111111111111 (Visa test).';
-    if (!isExpiryValid(form.expiry)) return 'Enter a valid expiry (MM/YY), not expired.';
+    if (digits.length !== 16 && digits.length !== 15) return 'Card number must be 16 digits (15 for Amex).';
+    if (!luhnCheck(digits)) return 'Invalid card number. Check the digits and try again.';
+    if (!isExpiryValid(form.expiry)) return 'Enter a valid expiry MM/YY that is not expired.';
     const cvv = onlyDigits(form.cvv);
-    if (cvv.length < 3) return 'CVV must be 3 digits (4 for Amex).';
+    if (digits.length === 15) {
+      if (cvv.length !== 4) return 'Amex CVV must be 4 digits.';
+    } else if (cvv.length !== 3) {
+      return 'CVV must be exactly 3 digits.';
+    }
     const name = (form.cardholder || '').trim();
     if (name.length < 2) return 'Enter the name on the card.';
     return null;
@@ -280,7 +285,7 @@ export default function PaymentPage() {
           <div className="field">
             <label>Payment method *</label>
             <select value={form.method} onChange={(e) => setField('method', e.target.value)}>
-              <option value="CARD">Card (Visa / Mastercard)</option>
+              <option value="CARD">Card</option>
               <option value="PAYPAL">PayPal</option>
               <option value="WALLET">Wallet</option>
             </select>
@@ -291,20 +296,19 @@ export default function PaymentPage() {
         {form.method === 'CARD' ? (
           <div
             style={{
-              marginTop: 16,
-              padding: 16,
-              border: '2px solid #F59E0B',
-              borderRadius: 12,
-              background: '#FFFBEB',
+              marginTop: 18,
+              padding: 20,
+              border: '1px solid rgba(201,162,39,0.45)',
+              borderRadius: 16,
+              background: 'linear-gradient(180deg, rgba(201,162,39,0.08), var(--bg-card))',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div style={{ fontWeight: 700, marginBottom: 8, color: '#0F172A' }}>
-              Card details (simulated) {brand ? `· ${brand}` : ''}
+              Card payment {brand ? `· ${brand}` : ''}
             </div>
-            <div style={{ fontSize: 13, color: '#64748B', marginBottom: 12 }}>
-              Test Visa: <strong>4111 1111 1111 1111</strong>
-              &nbsp;·&nbsp; Mastercard: <strong>5500 0000 0000 0004</strong>
-              &nbsp;·&nbsp; Expiry e.g. <strong>12/28</strong> · CVV <strong>123</strong>
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+              Demo cards: Visa <strong>4111 1111 1111 1111</strong> · Mastercard <strong>5500 0000 0000 0004</strong>
             </div>
             <div className="form-grid">
               <div className="field" style={{ gridColumn: '1 / -1' }}>
