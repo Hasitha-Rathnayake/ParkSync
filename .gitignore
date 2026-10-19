@@ -12,4 +12,5 @@ frontend/dist/
 .DS_Store
 .idea/
 *.class
-*.log
+*.lognode_modules/
+parksync/frontend/node_modules/

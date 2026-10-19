@@ -2,6 +2,7 @@ package com.parksync.parkinglot;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import com.parksync.parkinglot.factory.SlotFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
@@ -97,9 +98,12 @@ public class ParkingLotService {
             throw new IllegalStateException("Slot code '" + finalCode + "' already exists in this lot.");
         }
 
-        slot.setParkingLot(lot);
-        if (slot.getStatus() == null) slot.setStatus(ParkingSlot.SlotStatus.AVAILABLE);
-        return parkingSlotRepository.save(slot);
+        // FACTORY pattern — ensure consistent slot defaults
+        ParkingSlot built = SlotFactory.createSlot(lot, slot.getSlotCode(), slot.getFloor());
+        if (slot.getStatus() != null) {
+            built.setStatus(slot.getStatus());
+        }
+        return parkingSlotRepository.save(built);
     }
 
     // CREATE - batch slots with pattern LOTNAME-01, LOTNAME-02, ...
@@ -116,11 +120,10 @@ public class ParkingLotService {
         int next = nextSlotNumber(lotId, prefix);
         List<ParkingSlot> created = new ArrayList<>();
         for (int i = 0; i < count; i++) {
-            ParkingSlot slot = new ParkingSlot();
-            slot.setSlotCode(String.format("%s-%02d", prefix, next + i));
-            slot.setFloor(floor != null && !floor.isBlank() ? floor.trim() : null);
-            slot.setStatus(ParkingSlot.SlotStatus.AVAILABLE);
-            slot.setParkingLot(lot);
+            // FACTORY pattern — build slot entity in one place
+            ParkingSlot slot = SlotFactory.createSlotWithAutoCode(
+                    lot, prefix, next + i,
+                    floor != null && !floor.isBlank() ? floor.trim() : null);
             created.add(parkingSlotRepository.save(slot));
         }
         return created;
