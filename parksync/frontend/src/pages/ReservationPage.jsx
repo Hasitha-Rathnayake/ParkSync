@@ -14,7 +14,8 @@ import { useAuth } from '../context/AuthContext';
 import { canManageReservations } from '../utils/roles';
 import SearchableSelect from '../components/SearchableSelect';
 
-const API_ORIGIN = 'http://localhost:8080';
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api')
+  .replace(/\/api\/?$/, '');
 const lotPhotoUrl = (imagePath) =>
   imagePath ? (imagePath.startsWith('http') ? imagePath : `${API_ORIGIN}/uploads/${imagePath}`) : null;
 

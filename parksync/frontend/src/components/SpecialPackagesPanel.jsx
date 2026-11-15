@@ -3,7 +3,8 @@ import {
   createPackage, updatePackage, getPackagesForLot, uploadPackageImage, deactivatePackage,
 } from '../api/packageApi';
 
-const API_ORIGIN = 'http://localhost:8080';
+const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api')
+  .replace(/\/api\/?$/, '');
 const imgUrl = (path) =>
   path ? (path.startsWith('http') ? path : `${API_ORIGIN}/uploads/${path}`) : null;
 
