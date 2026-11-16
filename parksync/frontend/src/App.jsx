@@ -12,6 +12,7 @@ import RegisterPage from './pages/RegisterPage';
 import ManageStaffPage from './pages/ManageStaffPage';
 import MyVehiclesPage from './pages/MyVehiclesPage';
 import ProfilePage from './pages/ProfilePage';
+import OffersPage from './pages/OffersPage';
 import { useAuth } from './context/AuthContext';
 import {
   canSeeLots, canSeePricing, canSeeTickets, canSeeVehicles, canManageStaff,
@@ -21,6 +22,7 @@ import { getUnreadCount, getNotificationHistory } from './api/notificationApi';
 import { getTicketsForUser } from './api/ticketApi';
 import { getStoredTheme, applyTheme } from './theme';
 import './App.css';
+
 
 function ThemeMenu() {
   const [theme, setTheme] = useState(() => getStoredTheme());
@@ -159,6 +161,10 @@ function NavBar() {
         ParkSync
       </Link>
 
+      <NavLink to="/offers" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+        Offers
+      </NavLink>
+
       {(!user || canSeeReservations(role) || canManageReservations(role)) && (
         <NavLink to="/reservations" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
           Reservations
@@ -242,6 +248,7 @@ export default function App() {
       <NavBar />
       <Routes>
         <Route path="/" element={<HomePage />} />
+	<Route path="/offers" element={<OffersPage />} />
         <Route path="/reservations" element={<ReservationPage />} />
         <Route path="/lots" element={<ParkingLotAdminPage />} />
         <Route path="/tickets" element={<TicketPage />} />
