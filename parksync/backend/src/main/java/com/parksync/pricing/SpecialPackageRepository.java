@@ -18,7 +18,7 @@ public interface SpecialPackageRepository extends JpaRepository<SpecialPackage, 
         """)
     List<SpecialPackage> findActiveForLotOnDate(@Param("lotId") Long lotId, @Param("day") LocalDate day);
 
-    /** All active packages across every lot on a given day (dashboard strip). */
+    /** All active packages across every lot on a given day (dashboard strip / payment). */
     @Query("""
         SELECT p FROM SpecialPackage p
         WHERE p.active = true
@@ -26,4 +26,12 @@ public interface SpecialPackageRepository extends JpaRepository<SpecialPackage, 
         ORDER BY p.discountPercentage DESC, p.name ASC
         """)
     List<SpecialPackage> findAllActiveOnDate(@Param("day") LocalDate day);
+
+    /** All active packages (any date window) — Offers tab: current + upcoming. */
+    @Query("""
+        SELECT p FROM SpecialPackage p
+        WHERE p.active = true
+        ORDER BY p.startDate ASC, p.discountPercentage DESC
+        """)
+    List<SpecialPackage> findAllActivePackages();
 }

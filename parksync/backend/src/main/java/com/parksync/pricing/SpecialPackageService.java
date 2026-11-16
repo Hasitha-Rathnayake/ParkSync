@@ -69,6 +69,11 @@ public class SpecialPackageService {
         return repository.findAllActiveOnDate(d);
     }
 
+    /** All active packages any date window — Offers catalogue. */
+    public List<SpecialPackage> listAllActivePackages() {
+        return repository.findAllActivePackages();
+    }
+
     /** Best (highest %) active package for lot on a given day, or null */
     public SpecialPackage bestForLotOnDate(Long lotId, LocalDate day) {
         List<SpecialPackage> list = activeOnDate(lotId, day);

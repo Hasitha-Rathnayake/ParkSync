@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getAllActivePackages, deactivatePackage } from '../api/packageApi';
+import { getAllAvailablePackages, deactivatePackage } from '../api/packageApi';
 import { getAllLots } from '../api/parkingLotApi';
 import { useAuth } from '../context/AuthContext';
 import { canSeePricing } from '../utils/roles';
@@ -10,11 +10,21 @@ const API_ORIGIN = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api')
 const imgUrl = (path) =>
   path ? (path.startsWith('http') ? path : `${API_ORIGIN}/uploads/${path}`) : null;
 
+function offerStatus(pkg) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(pkg.startDate + 'T00:00:00');
+  const end = new Date(pkg.endDate + 'T00:00:00');
+  if (today < start) return { label: 'Upcoming', tone: 'upcoming' };
+  if (today > end) return { label: 'Ended', tone: 'ended' };
+  return { label: 'Active now', tone: 'now' };
+}
+
 export default function OffersPage() {
   const { user } = useAuth();
   const role = user?.role;
   const isCustomer = !user || role === 'CUSTOMER';
-  const isManager = user && canSeePricing(role); // LOT_ADMIN / SYSTEM_ADMIN
+  const isManager = user && canSeePricing(role);
   const [packages, setPackages] = useState([]);
   const [lots, setLots] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +35,7 @@ export default function OffersPage() {
     setLoading(true);
     setError('');
     Promise.all([
-      getAllActivePackages().then((r) => r.data || []).catch(() => []),
+      getAllAvailablePackages().then((r) => r.data || []).catch(() => []),
       getAllLots().then((r) => r.data || []).catch(() => []),
     ])
       .then(([pkgs, lotList]) => {
@@ -60,8 +70,8 @@ export default function OffersPage() {
     <div className="page">
       <h1 className="page-title">Offers & special packages</h1>
       <p className="page-subtitle">
-        Festival, weekend, and seasonal deals active today. Discount applies automatically when a
-        customer books a slot at that lot for a date inside the offer window.
+        All active deals — running now and upcoming. Discount applies automatically when you book
+        a slot at that lot for a date inside the highlighted period. Applies to available slots at the lot.
       </p>
 
       {isManager && (
@@ -77,7 +87,7 @@ export default function OffersPage() {
       {error && <div className="alert alert-error">{error}</div>}
       {!loading && !error && packages.length === 0 && (
         <div className="empty-state">
-          No active offers today.
+          No active offers yet.
           {isManager && (
             <>
               {' '}
@@ -95,105 +105,133 @@ export default function OffersPage() {
           marginTop: 8,
         }}
       >
-        {packages.map((pkg) => (
-          <div
-            key={pkg.id}
-            className="card"
-            style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
-          >
-            {pkg.imagePath ? (
-              <img
-                src={imgUrl(pkg.imagePath)}
-                alt={pkg.name}
-                style={{ width: '100%', height: 160, objectFit: 'cover' }}
-              />
-            ) : (
-              <div
-                style={{
-                  height: 160,
-                  background: 'linear-gradient(135deg, #0B1220 0%, #C9A227 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontWeight: 800,
-                  fontSize: 14,
-                  letterSpacing: 1,
-                }}
-              >
-                {pkg.packageType || 'OFFER'}
-              </div>
-            )}
-            <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
-                <div className="card-title" style={{ margin: 0 }}>{pkg.name}</div>
-                <span
-                  className="badge"
+        {packages.map((pkg) => {
+          const status = offerStatus(pkg);
+          return (
+            <div
+              key={pkg.id}
+              className="card"
+              style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+            >
+              {pkg.imagePath ? (
+                <img
+                  src={imgUrl(pkg.imagePath)}
+                  alt={pkg.name}
+                  style={{ width: '100%', height: 160, objectFit: 'cover' }}
+                />
+              ) : (
+                <div
                   style={{
-                    background: 'rgba(201, 162, 39, 0.2)',
-                    color: '#8B6914',
+                    height: 160,
+                    background: 'linear-gradient(135deg, #0B1220 0%, #C9A227 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
                     fontWeight: 800,
-                    whiteSpace: 'nowrap',
+                    fontSize: 14,
+                    letterSpacing: 1,
                   }}
                 >
-                  {pkg.discountPercentage}% OFF
-                </span>
-              </div>
-              <div className="card-meta" style={{ marginTop: 8 }}>
-                {lotName(pkg.parkingLotId)}
-                <br />
-                {pkg.packageType} · {pkg.startDate} → {pkg.endDate}
-              </div>
-              {pkg.description && (
-                <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
-                  {pkg.description}
-                </p>
+                  {pkg.packageType || 'OFFER'}
+                </div>
               )}
-              <div style={{ marginTop: 'auto', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* Customer: book */}
-                {isCustomer && (
-                  <Link
-                    to={user ? '/reservations' : '/login'}
-                    state={user ? { preselectLotId: pkg.parkingLotId } : { from: '/offers' }}
-                    className="btn btn-primary btn-sm"
-                    style={{ width: '100%', textAlign: 'center', display: 'inline-block' }}
+              <div style={{ padding: 16, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                  <div className="card-title" style={{ margin: 0 }}>{pkg.name}</div>
+                  <span
+                    className="badge"
+                    style={{
+                      background: 'rgba(201, 162, 39, 0.2)',
+                      color: '#8B6914',
+                      fontWeight: 800,
+                      whiteSpace: 'nowrap',
+                    }}
                   >
-                    {user ? 'Book this lot' : 'Log in to book'}
-                  </Link>
+                    {pkg.discountPercentage}% OFF
+                  </span>
+                </div>
+
+                <div className="card-meta" style={{ marginTop: 8 }}>
+                  {lotName(pkg.parkingLotId)}
+                  <br />
+                  {pkg.packageType} · all available slots at this lot
+                </div>
+
+                {/* Period highlighting */}
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    background: status.tone === 'now'
+                      ? 'rgba(201, 162, 39, 0.18)'
+                      : status.tone === 'upcoming'
+                        ? 'rgba(59, 130, 246, 0.12)'
+                        : 'rgba(148, 163, 184, 0.2)',
+                    border: status.tone === 'now'
+                      ? '1px solid rgba(201, 162, 39, 0.45)'
+                      : '1px solid transparent',
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, color: 'var(--navy)' }}>
+                    {status.label}
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--navy)' }}>
+                    {pkg.startDate} → {pkg.endDate}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                    Book any available slot at this lot with a start date inside this period
+                  </div>
+                </div>
+
+                {pkg.description && (
+                  <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: '10px 0 0' }}>
+                    {pkg.description}
+                  </p>
                 )}
 
-                {/* Lot Admin / System Admin: manage */}
-                {isManager && (
-                  <>
+                <div style={{ marginTop: 'auto', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {isCustomer && (
                     <Link
-                      to="/pricing"
-                      className="btn btn-secondary btn-sm"
+                      to={user ? '/reservations' : '/login'}
+                      state={user ? { preselectLotId: pkg.parkingLotId } : { from: '/offers' }}
+                      className="btn btn-primary btn-sm"
                       style={{ width: '100%', textAlign: 'center', display: 'inline-block' }}
                     >
-                      Modify on Pricing
+                      {user ? 'Book this lot' : 'Log in to book'}
                     </Link>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      style={{ width: '100%' }}
-                      disabled={busyId === pkg.id}
-                      onClick={() => handleDeactivate(pkg.id)}
-                    >
-                      {busyId === pkg.id ? 'Deactivating…' : 'Deactivate offer'}
-                    </button>
-                  </>
-                )}
-
-                {/* Attendant / other staff: view only */}
-                {user && !isCustomer && !isManager && (
-                  <div className="card-meta" style={{ textAlign: 'center' }}>
-                    View only — customers use this to book
-                  </div>
-                )}
+                  )}
+                  {isManager && (
+                    <>
+                      <Link
+                        to="/pricing"
+                        className="btn btn-secondary btn-sm"
+                        style={{ width: '100%', textAlign: 'center', display: 'inline-block' }}
+                      >
+                        Modify on Pricing
+                      </Link>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        style={{ width: '100%' }}
+                        disabled={busyId === pkg.id}
+                        onClick={() => handleDeactivate(pkg.id)}
+                      >
+                        {busyId === pkg.id ? 'Deactivating…' : 'Deactivate offer'}
+                      </button>
+                    </>
+                  )}
+                  {user && !isCustomer && !isManager && (
+                    <div className="card-meta" style={{ textAlign: 'center' }}>
+                      View only — customers use this to book
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

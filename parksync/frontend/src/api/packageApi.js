@@ -6,9 +6,12 @@ export const getPackagesForLot = (lotId, activeOnly = false) =>
   apiClient.get(`/packages/lot/${lotId}`, { params: { activeOnly } });
 export const getActivePackages = (lotId, date) =>
   apiClient.get(`/packages/lot/${lotId}/active`, { params: date ? { date } : {} });
-/** All lots — for home dashboard promo strip */
+/** Valid on a date (default today) — discount apply */
 export const getAllActivePackages = (date) =>
   apiClient.get('/packages/active', { params: date ? { date } : {} });
+/** Offers tab: all active packages (current + upcoming) */
+export const getAllAvailablePackages = () =>
+  apiClient.get('/packages/available');
 export const uploadPackageImage = (id, file) => {
   const form = new FormData();
   form.append('file', file);

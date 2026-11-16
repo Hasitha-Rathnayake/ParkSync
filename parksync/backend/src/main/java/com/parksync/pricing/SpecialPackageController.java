@@ -1,7 +1,6 @@
 package com.parksync.pricing;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -50,12 +49,18 @@ public class SpecialPackageController {
         return service.activeOnDate(lotId, day);
     }
 
-    /** Dashboard: all active packages (any lot) for a date (default today). */
+    /** Packages valid on a date (default today) — payment / discount apply. */
     @GetMapping("/active")
     public List<SpecialPackage> allActiveToday(
             @RequestParam(required = false) String date) {
         LocalDate day = (date != null && !date.isBlank()) ? LocalDate.parse(date) : LocalDate.now();
         return service.listAllActiveOnDate(day);
+    }
+
+    /** Offers tab: all active packages (current + upcoming), any start/end window. */
+    @GetMapping("/available")
+    public List<SpecialPackage> allAvailable() {
+        return service.listAllActivePackages();
     }
 
     @GetMapping("/{id}")
@@ -69,15 +74,16 @@ public class SpecialPackageController {
             return ResponseEntity.ok(service.uploadImage(id, file));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
         }
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deactivate(@PathVariable Long id) {
-        service.deactivate(id);
-        return ResponseEntity.ok(Map.of("ok", true));
+        try {
+            service.deactivate(id);
+            return ResponseEntity.ok(Map.of("message", "Package deactivated"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }
