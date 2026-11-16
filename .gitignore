@@ -1,16 +1,15 @@
 # Backend
-backend/target/
-backend/.idea/
-backend/*.iml
-backend/untitled/
+parksync/backend/target/
+parksync/backend/.idea/
+parksync/backend/*.iml
+parksync/backend/untitled/
 
 # Frontend
-frontend/node_modules/
-frontend/dist/
-
-# OS / IDE
-.DS_Store
-.idea/
-*.class
-*.lognode_modules/
 parksync/frontend/node_modules/
+parksync/frontend/dist/
+
+# IDE / OS
+.idea/
+.DS_Store
+*.class
+*.log
