@@ -36,11 +36,15 @@ public class ApiAuthFilter extends OncePerRequestFilter {
         for (String p : PUBLIC_PREFIXES) {
             if (path.startsWith(p)) return true;
         }
-        // Public GET lots list for browsing before login (optional read-only)
+        // Public GET lots list for browsing before login
         if (HttpMethod.GET.matches(method) && (path.equals("/api/lots") || path.matches("/api/lots/\\d+"))) {
             return true;
         }
+        // Public package catalogue (Offers tab + discount checks)
         if (HttpMethod.GET.matches(method) && path.startsWith("/api/packages/active")) {
+            return true;
+        }
+        if (HttpMethod.GET.matches(method) && path.startsWith("/api/packages/available")) {
             return true;
         }
         if (HttpMethod.GET.matches(method) && path.matches("/api/packages/lot/\\d+/active.*")) {
