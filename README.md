@@ -117,7 +117,7 @@ Screenshots
 ![Landing](docs/screenshots/landing.png)
 ![Reserve](docs/screenshots/reserve.png)
 ![Offers](docs/screenshots/offers.png)
-![Pricing](docs/screenshots/pricing.png)
+![Notifications](docs/screenshots/notifications.png)
 
 Course: SE2030 · Project code: 26-MTR-SE2030-08
 
